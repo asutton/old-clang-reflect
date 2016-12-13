@@ -30,6 +30,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/SmallVector.h"
+
 using namespace clang;
 
 /// \brief Simple precedence-based parser for binary/ternary operators.
@@ -689,8 +690,31 @@ class CastExpressionIdValidator : public CorrectionCandidateCallback {
 /// [Embarcadero] expression-trait:
 ///                   '__is_lvalue_expr'
 ///                   '__is_rvalue_expr'
-/// \endverbatim
 ///
+/// [Reflection] primary-expression:
+///         reflect-expression
+///         reflection-trait
+///
+///       reflect-expression:
+///         '$' id-expression
+///         '$' type-id
+///         '$' nested-name-specifier[opt] namespace-name
+///
+///       reflection-trait:
+///         '__reflect_name'
+///         '__reflect_qualified_name'
+///         '__reflect_type'
+///         '__reflect_traits'
+///         '__reflect_specifiers'
+///         '__reflect_pointer'
+///         '__reflect_value'
+///         '__reflect_num_parameters'
+///         '__reflect_parameter'
+///         '__reflect_declaration_context'
+///         '__reflect_lexical_context'
+///         '__reflect_num_members'
+///         '__reflect_member'
+/// \endverbatim
 ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
                                        bool isAddressOfOperand,
                                        bool &NotCastExpr,
@@ -1318,6 +1342,10 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     return Result;
   }
 
+  case tok::dollar:  // [Reflection] reflect-expression
+    Res = ParseReflectExpression();
+    break;
+
 #define TYPE_TRAIT(N,Spelling,K) \
   case tok::kw_##Spelling:
 #include "clang/Basic/TokenKinds.def"
@@ -1330,7 +1358,12 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw___is_lvalue_expr:
   case tok::kw___is_rvalue_expr:
     return ParseExpressionTrait();
-      
+
+#define REFLECTION_TRAIT(N,Spelling,K) \
+  case tok::kw_##Spelling:
+#include "clang/Basic/TokenKinds.def"
+    return ParseReflectionTrait();
+
   case tok::at: {
     SourceLocation AtLoc = ConsumeToken();
     return ParseObjCAtExpression(AtLoc);

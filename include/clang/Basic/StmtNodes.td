@@ -152,6 +152,10 @@ def CoroutineSuspendExpr : DStmt<Expr, 1>;
 def CoawaitExpr : DStmt<CoroutineSuspendExpr>;
 def CoyieldExpr : DStmt<CoroutineSuspendExpr>;
 
+// C++ Reflection Expressions
+def ReflectionExpr : DStmt<Expr>;
+def ReflectionTraitExpr : DStmt<Expr>;
+
 // Obj-C Expressions.
 def ObjCStringLiteral : DStmt<Expr>;
 def ObjCBoxedExpr : DStmt<Expr>;

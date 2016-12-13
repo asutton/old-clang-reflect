@@ -8708,6 +8708,36 @@ def err_coroutine_promise_return_ill_formed : Error<
   "%0 declares both 'return_value' and 'return_void'">;
 }
 
+let CategoryName = "User-Defined Issue" in {
+def err_compiler_error : Error<"%0">;
+}
+
+// [PIM] Reflection
+let CategoryName = "Reflection Issue" in {
+def err_not_implemented : Error<
+  "feature not implemented">;
+def err_need_header_before_dollar : Error<
+  "you need to include <cpp3k/meta> before using the '$' operator">;
+def err_reflected_overload : Error<
+  "reflection of an overloaded name">;
+def err_not_reflection : Error<
+  "expression does not reflect an entity">;
+def err_reflection_not_supported : Error<
+  "entity does not support this reflection">;
+def err_reflection_operand_not_integer : Error<
+  "argument trait expects an integer operand">;
+def err_reflection_not_named : Error<
+  "reflected entity is not named named">;
+def err_reflection_not_typed : Error<
+  "reflected entity is not named named">;
+def err_reflection_of_local_reference : Error<
+  "reflection of a reference to a local variable">;
+def err_reflection_not_function : Error<
+  "reflected entity is not a function">;
+def err_parameter_out_of_bounds : Error<
+  "reflected parameter is out of bounds">;
+} // end of reflection issue category
+
 let CategoryName = "Documentation Issue" in {
 def warn_not_a_doxygen_trailing_member_comment : Warning<
   "not a Doxygen trailing comment">, InGroup<Documentation>, DefaultIgnore;

@@ -4614,6 +4614,16 @@ public:
     llvm_unreachable("Return from function from the loop above.");
   }
 
+  /// Visit a reflection trait expression. The value is computed during 
+  /// semantic analysis, so just return that here.
+  ///
+  /// FIXME: I don't think that this function will ever be called in the
+  /// current implementation because we are replacing non-dependent versions
+  /// of these expressions with other expressions.
+  bool VisitReflectionTraitExpr(const ReflectionTraitExpr* E) {
+    return DerivedSuccess(E->getValue(), E);
+  }
+
   /// Visit a value which is evaluated, but whose value is ignored.
   void VisitIgnoredValue(const Expr *E) {
     EvaluateIgnoredValue(Info, E);
@@ -10004,6 +10014,9 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
   case Expr::ChooseExprClass: {
     return CheckICE(cast<ChooseExpr>(E)->getChosenSubExpr(), Ctx);
   }
+  case Expr::ReflectionExprClass:
+  case Expr::ReflectionTraitExprClass:
+    llvm_unreachable("not implemented");
   }
 
   llvm_unreachable("Invalid StmtClass!");

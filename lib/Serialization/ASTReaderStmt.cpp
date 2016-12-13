@@ -966,6 +966,14 @@ void ASTStmtReader::VisitAtomicExpr(AtomicExpr *E) {
   E->RParenLoc = ReadSourceLocation(Record, Idx);
 }
 
+void ASTStmtReader::VisitReflectionExpr(ReflectionExpr *E) {
+  llvm_unreachable("unimplemented");
+}
+
+void ASTStmtReader::VisitReflectionTraitExpr(ReflectionTraitExpr *E) {
+  llvm_unreachable("unimplemented");
+}
+
 //===----------------------------------------------------------------------===//
 // Objective-C Expressions and Statements
 
@@ -3881,7 +3889,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     }
     }
-    
+
     // We hit a STMT_STOP, so we're done with this expression.
     if (Finished)
       break;

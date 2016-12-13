@@ -2451,6 +2451,35 @@ void StmtPrinter::VisitCoyieldExpr(CoyieldExpr *S) {
   PrintExpr(S->getOperand());
 }
 
+static const char *getReflectionTraitName(ReflectionTrait RT) {
+  switch (RT) {
+#define REFLECTION_TRAIT_1(Spelling, Kind) \
+  case clang::URT_##Kind: return #Spelling;
+#define REFLECTION_TRAIT_2(Spelling, Kind) \
+  case clang::BRT_##Kind: return #Spelling;
+#include "clang/Basic/TokenKinds.def"
+  }
+}
+
+void StmtPrinter::VisitReflectionExpr(ReflectionExpr *E) {
+  // TODO: We probably need braces on the expression and/or type.
+  OS << '$';
+  if (E->hasExpressionOperand())
+    PrintExpr(E->getExpressionOperand());
+  else
+    E->getTypeOperand()->getType().print(OS, Policy);
+}
+
+void StmtPrinter::VisitReflectionTraitExpr(ReflectionTraitExpr *E) {
+  OS << getReflectionTraitName(E->getTrait()) << '(';
+  for (unsigned i = 0; i < E->getNumArgs(); ++i) {
+    PrintExpr(E->getArg(i));
+    if (i + 1 != E->getNumArgs())
+      OS << ", ";
+  }
+  OS << ')';
+}
+
 // Obj-C
 
 void StmtPrinter::VisitObjCStringLiteral(ObjCStringLiteral *Node) {

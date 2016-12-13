@@ -1328,6 +1328,33 @@ public:
     return getSema().BuildCoyieldExpr(CoyieldLoc, Result);
   }
 
+  /// \brief Build a new reflection expression.
+  ///
+  /// By default, performs semantic analysis to build the new expression.
+  /// Subclasses may override this routine to provide different behavior.
+  ExprResult RebuildReflectionExpr(SourceLocation OpLoc, Expr *E) {
+    return getSema().ActOnCXXReflectExpr(OpLoc, E);
+  }
+
+  /// \brief Build a new reflection expression.
+  ///
+  /// By default, performs semantic analysis to build the new expression.
+  /// Subclasses may override this routine to provide different behavior.
+  ExprResult RebuildReflectionExpr(SourceLocation OpLoc, TypeSourceInfo *TSI) {
+    return getSema().ActOnCXXReflectExpr(OpLoc, TSI);
+  }
+
+  /// \brief Build a new reflection trait expression.
+  ///
+  /// By default, performs semantic analysis to build the new expression.
+  /// Subclasses may override this routine to provide different behavior.
+  ExprResult RebuildReflectionTraitExpr(SourceLocation TraitLoc,
+                                        ReflectionTrait Trait,
+                                        ArrayRef<Expr *> Args,
+                                        SourceLocation RParenLoc) {
+    return getSema().ActOnReflectionTrait(TraitLoc, Trait, Args, RParenLoc);
+  }
+
   /// \brief Build a new Objective-C \@try statement.
   ///
   /// By default, performs semantic analysis to build the new statement.
@@ -1691,7 +1718,7 @@ public:
   OMPClause *RebuildOMPNumTeamsClause(Expr *NumTeams, SourceLocation StartLoc,
                                       SourceLocation LParenLoc,
                                       SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPNumTeamsClause(NumTeams, StartLoc, LParenLoc, 
+    return getSema().ActOnOpenMPNumTeamsClause(NumTeams, StartLoc, LParenLoc,
                                                EndLoc);
   }
 
@@ -2918,7 +2945,7 @@ public:
                                           Sel, Method, LBracLoc, SelectorLocs,
                                           RBracLoc, Args);
 
-      
+
   }
 
   /// \brief Build a new Objective-C ivar reference expression.
@@ -6036,7 +6063,7 @@ TreeTransform<Derived>::TransformObjCObjectType(TypeLocBuilder &TLB,
 
         TypeLocBuilder TypeArgBuilder;
         TypeArgBuilder.reserve(PatternLoc.getFullDataSize());
-        QualType NewPatternType = getDerived().TransformType(TypeArgBuilder, 
+        QualType NewPatternType = getDerived().TransformType(TypeArgBuilder,
                                                              PatternLoc);
         if (NewPatternType.isNull())
           return QualType();
@@ -6703,6 +6730,38 @@ TreeTransform<Derived>::TransformCoyieldExpr(CoyieldExpr *E) {
   // Always rebuild; we don't know if this needs to be injected into a new
   // context or if the promise type has changed.
   return getDerived().RebuildCoyieldExpr(E->getKeywordLoc(), Result.get());
+}
+
+template <typename Derived>
+ExprResult TreeTransform<Derived>::TransformReflectionExpr(ReflectionExpr *E) {
+  if (E->hasExpressionOperand()) {
+    ExprResult Expr = getDerived().TransformExpr(E->getExpressionOperand());
+    if (Expr.isInvalid())
+      return ExprError();
+    return getDerived().RebuildReflectionExpr(E->getOperatorLoc(), Expr.get());
+  } else {
+    TypeSourceInfo *TSI = getDerived().TransformType(E->getTypeOperand());
+    if (!TSI)
+      return ExprError();
+    return getDerived().RebuildReflectionExpr(E->getOperatorLoc(), TSI);
+  }
+}
+
+template <typename Derived>
+ExprResult
+TreeTransform<Derived>::TransformReflectionTraitExpr(ReflectionTraitExpr *E) {
+  SmallVector<Expr *, 2> Args;
+  Args.resize(E->getNumArgs());
+
+  for (unsigned i = 0; i < E->getNumArgs(); ++i) {
+    ExprResult Arg = getDerived().TransformExpr(E->getArg(i));
+    if (Arg.isInvalid())
+      return ExprError();
+    Args[i] = Arg.get();
+  }
+
+  return getDerived().RebuildReflectionTraitExpr(
+      E->getTraitLoc(), E->getTrait(), Args, E->getRParenLoc());
 }
 
 // Objective-C Statements.
@@ -10317,7 +10376,7 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
   TypeSourceInfo *NewCallOpTSI = nullptr;
   {
     TypeSourceInfo *OldCallOpTSI = E->getCallOperator()->getTypeSourceInfo();
-    FunctionProtoTypeLoc OldCallOpFPTL = 
+    FunctionProtoTypeLoc OldCallOpFPTL =
         OldCallOpTSI->getTypeLoc().getAs<FunctionProtoTypeLoc>();
 
     TypeLocBuilder NewCallOpTLBuilder;
@@ -10400,7 +10459,7 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
 
     // Rebuild init-captures, including the implied field declaration.
     if (E->isInitCapture(C)) {
-      InitCaptureInfoTy InitExprTypePair = 
+      InitCaptureInfoTy InitExprTypePair =
           InitCaptureExprsAndTypes[C - E->capture_begin()];
       ExprResult Init = InitExprTypePair.first;
       QualType InitQualType = InitExprTypePair.second;

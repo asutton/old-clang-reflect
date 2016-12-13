@@ -922,6 +922,14 @@ void ASTStmtWriter::VisitAtomicExpr(AtomicExpr *E) {
   Code = serialization::EXPR_ATOMIC;
 }
 
+void ASTStmtWriter::VisitReflectionExpr(ReflectionExpr *E) {
+  llvm_unreachable("unimplemented");
+}
+
+void ASTStmtWriter::VisitReflectionTraitExpr(ReflectionTraitExpr *E) {
+  llvm_unreachable("unimplemented");
+}
+
 //===----------------------------------------------------------------------===//
 // Objective-C Expressions and Statements.
 //===----------------------------------------------------------------------===//

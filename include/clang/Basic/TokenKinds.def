@@ -67,6 +67,18 @@
 #define ANNOTATION(X) TOK(annot_ ## X)
 #endif
 
+// [PIM] Keyword macros for reflection queries.
+#ifndef REFLECTION_TRAIT
+#define REFLECTION_TRAIT(N,I,K) KEYWORD(I, KEYCXX11)
+#endif
+#ifndef REFLECTION_TRAIT_1
+#define REFLECTION_TRAIT_1(I,K) REFLECTION_TRAIT(1,I,K)
+#endif
+#ifndef REFLECTION_TRAIT_2
+#define REFLECTION_TRAIT_2(I,K) REFLECTION_TRAIT(2,I,K)
+#endif
+
+
 //===----------------------------------------------------------------------===//
 // Preprocessor keywords.
 //===----------------------------------------------------------------------===//
@@ -214,6 +226,9 @@ PUNCTUATOR(hashat,              "#@")
 PUNCTUATOR(periodstar,          ".*")
 PUNCTUATOR(arrowstar,           "->*")
 PUNCTUATOR(coloncolon,          "::")
+
+// [PIM] C++ Reflection support.
+PUNCTUATOR(dollar,              "$")
 
 // Objective C support.
 PUNCTUATOR(at,                  "@")
@@ -488,6 +503,23 @@ TYPE_TRAIT_2(__is_same, IsSame, KEYCXX)
 TYPE_TRAIT_2(__is_convertible, IsConvertible, KEYCXX)
 KEYWORD(__array_rank                , KEYCXX)
 KEYWORD(__array_extent              , KEYCXX)
+
+// [cpp3k] Extensions for Reflection
+//
+// TODO: Put these in a KEYREFLECTION category.
+REFLECTION_TRAIT_1(__reflect_name, ReflectName)
+REFLECTION_TRAIT_1(__reflect_qualified_name, ReflectQualifiedName)
+REFLECTION_TRAIT_1(__reflect_type, ReflectType)
+REFLECTION_TRAIT_1(__reflect_traits, ReflectTraits)
+REFLECTION_TRAIT_1(__reflect_specifiers, ReflectSpecifiers)
+REFLECTION_TRAIT_1(__reflect_pointer, ReflectPointer)
+REFLECTION_TRAIT_1(__reflect_value, ReflectValue)
+REFLECTION_TRAIT_1(__reflect_num_parameters, ReflectNumParameters)
+REFLECTION_TRAIT_2(__reflect_parameter, ReflectParameter)
+REFLECTION_TRAIT_1(__reflect_declaration_context, ReflectDeclarationContext)
+REFLECTION_TRAIT_1(__reflect_lexical_context, ReflectLexicalContext)
+REFLECTION_TRAIT_1(__reflect_num_members, ReflectNumMembers)
+REFLECTION_TRAIT_2(__reflect_member, ReflectMember)
 
 // Apple Extension.
 KEYWORD(__private_extern__          , KEYALL)
@@ -792,6 +824,9 @@ ANNOTATION(module_include)
 ANNOTATION(module_begin)
 ANNOTATION(module_end)
 
+#undef REFLECTION_TRAIT
+#undef REFLECTION_TRAIT_2
+#undef REFLECTION_TRAIT_1
 #undef ANNOTATION
 #undef TESTING_KEYWORD
 #undef OBJC2_AT_KEYWORD
