@@ -1,0 +1,704 @@
+// -*- C++ -*-
+
+#ifndef _CPP3K_META
+#define _CPP3K_META
+
+#include "detail/tuple.hpp"
+
+#include <cstdint>
+
+
+namespace cpp3k
+{
+namespace meta
+{
+inline namespace v1
+{
+
+// -------------------------------------------------------------------------- //
+// Helper types
+
+using reflection_t = std::intptr_t;
+
+
+// -------------------------------------------------------------------------- //
+// Specifiers
+//
+// NOTE: These order and structure of the _info classes needs to be kept in 
+// sync with the compiler.
+
+enum linkage_kind : unsigned {
+  no_linkage,
+  internal_linkage,
+  external_linkage
+};
+
+// The linkage of a bitfield is always stored in the first 2 bits.
+static constexpr linkage_kind get_linkage(unsigned n) {
+  return linkage_kind(n & 0x03);
+}
+
+enum access_kind : unsigned {
+  no_access,
+  public_access,
+  private_access,
+  protected_access,
+};
+
+// Access specifiers are always stored in bits 3 and 4.
+static constexpr access_kind get_access(unsigned n) {
+  return access_kind((n & 0x0b) >> 2);
+}
+
+enum storage_kind : unsigned {
+  no_storage,
+  static_storage,
+  automatic_storage,
+  thread_storage,
+};
+
+// When present, storage specifiers are stored in bits 5 and 6.
+static constexpr storage_kind get_storage(unsigned n) {
+  return storage_kind((n & 0x0b) >> 2);
+}
+
+// All declarations have linkage and access.
+struct decl_traits {
+  constexpr explicit decl_traits(unsigned n)
+    : linkage      (get_linkage(n)), // 0x01 | 0x02
+      access       (get_access(n))   // 0x04 | 0x08
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+};
+
+struct variable_traits {
+  constexpr explicit variable_traits(unsigned n)
+    : linkage      (get_linkage(n)), // 0x01 | 0x02
+      access       (get_access(n)),  // 0x04 | 0x08
+      storage      (get_storage(n)), // 0x10 | 0x20
+      is_constexpr (n & 0x40),
+      is_defined   (n & 0x80),
+      is_inline    (n & 0x0100)
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+  storage_kind storage : 2;
+  bool is_constexpr : 1;
+  bool is_defined : 1;
+  bool is_inline : 1;
+};
+
+struct function_traits {
+  constexpr explicit function_traits(unsigned n)
+    : linkage      (get_linkage(n)), // 0x01 | 0x02
+      access       (get_access(n)),  // 0x04 | 0x08
+      is_constexpr (n & 0x10),
+      is_noexcept  (n & 0x20),
+      is_defined   (n & 0x40),
+      is_inline    (n & 0x80),
+      is_deleted   (n & 0x0100)
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+  bool is_constexpr : 1;
+  bool is_noexcept : 1;
+  bool is_defined : 1;
+  bool is_inline : 1;
+  bool is_deleted : 1;
+};
+
+struct value_traits {
+  constexpr explicit value_traits(unsigned n)
+    : linkage      (get_linkage(n)), // 0x01 | 0x02
+      access       (get_access(n))   // 0x04 | 0x08
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+};
+
+struct namespace_traits {
+  constexpr explicit namespace_traits(unsigned n)
+    : linkage      (get_linkage(n)), // 0x01 | 0x02
+      access       (get_access(n)),  // 0x04 | 0x08
+      is_inline    (n & 0x10)
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+  bool is_inline : 1;
+};
+
+struct field_traits {
+  constexpr explicit field_traits(unsigned n)
+    : linkage      (get_linkage(n)), // 0x01 | 0x02
+      access       (get_access(n)),  // 0x04 | 0x08
+      storage      (get_storage(n)), // 0x10 | 0x20
+      is_mutable   (n & 0x40)
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+  storage_kind storage : 2;
+  bool is_mutable : 1;
+};
+
+struct method_traits {
+  constexpr explicit method_traits(unsigned n)
+    : linkage      (get_linkage(n)), // 0x01 | 0x02
+      access       (get_access(n)),  // 0x04 | 0x08
+      is_constexpr (n & 0x10),
+      is_explicit  (n & 0x20),
+      is_virtual   (n & 0x40),
+      is_pure      (n & 0x80),
+      is_final     (n & 0x0100),
+      is_override  (n & 0x0200),
+      is_noexcept  (n & 0x0400),
+      is_defined   (n & 0x0800),
+      is_inline    (n & 0x1000),
+      is_deleted   (n & 0x2000),
+      is_defaulted (n & 0x4000),
+      is_trivial   (n & 0x8000)
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+  bool is_constexpr : 1; // not dtors
+  bool is_explicit : 1; // ctors and conversions
+  bool is_virtual : 1; // not ctors
+  bool is_pure : 1; // not ctors
+  bool is_final : 1; // not ctors
+  bool is_override : 1; // not ctors
+  bool is_noexcept : 1;
+  bool is_defined : 1;
+  bool is_inline : 1;
+  bool is_deleted : 1;
+  bool is_defaulted : 1; // ctors and dtors
+  bool is_trivial : 1; // ctors and dtors
+};
+
+
+// TODO: Accumulate all known type traits for classes.
+struct class_traits {
+  constexpr explicit class_traits(unsigned n)
+    : linkage       (get_linkage(n)), // 0x01 | 0x02
+      access        (get_access(n)),  // 0x04 | 0x08
+      is_complete   (n & 0x10),
+      is_polymorphic(n & 0x20),
+      is_abstract   (n & 0x40),
+      is_final      (n & 0x80),
+      is_empty      (n & 0x0100)
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+  bool is_complete : 1;
+  bool is_polymorphic : 1;
+  bool is_abstract : 1;
+  bool is_final : 1;
+  bool is_empty : 1;
+};
+
+
+struct enum_traits {
+  constexpr explicit enum_traits(unsigned n)
+    : linkage    (get_linkage(n)), // 0x01 | 0x02
+      access     (get_access(n)),  // 0x04 | 0x08
+      is_scoped  (n & 0x10),
+      is_complete(n & 0x20)
+  { }
+
+  linkage_kind linkage : 2;
+  access_kind access : 2;
+  bool is_scoped;
+  bool is_complete;
+};
+
+
+// -------------------------------------------------------------------------- //
+// Reflection classes
+
+// Some useful predicates
+template<typename T> struct is_member_variable;
+template<typename T> struct is_member_function;
+template<typename T> struct is_constructor;
+template<typename T> struct is_destructor;
+
+
+template<reflection_t X>
+struct decl {
+  static constexpr decl_traits traits() { 
+    return __reflect_traits(X); 
+  }
+};
+
+// A helper class that provides support for named entities.
+template<reflection_t X>
+struct named : decl<X> {
+  static constexpr char const* name() { 
+    return __reflect_name(X); 
+  }
+  static constexpr char const* qualified_name() { 
+    return __reflect_qualified_name(X); 
+  }
+
+  static constexpr auto declaration_context() {
+    return __reflect_declaration_context(X);
+  }
+  static constexpr auto lexical_context() {
+    return __reflect_declaration_context(X);
+  }
+  
+  static constexpr linkage_kind linkage() { 
+    return decl<X>::traits().linkage;
+  }
+  static constexpr bool has_linkage() {
+    return linkage() != no_linkage;
+  }
+  static constexpr bool has_external_linkage() {
+    return linkage() == external_linkage;
+  }
+  static constexpr bool has_internal_linkage() {
+    return linkage() == internal_linkage;
+  }
+
+  static constexpr access_kind access() {
+    return decl<X>::traits.access;
+  }
+  static constexpr bool has_access() {
+    return access() != no_access;
+  }
+  static constexpr bool is_public() {
+    return access() == public_access;
+  }
+  static constexpr bool is_private() {
+    return access() == private_access;
+  }
+  static constexpr bool is_protected() {
+    return access() == protected_access;
+  }
+};
+
+// A helper class that provides access to members of a scope declaration.
+template<reflection_t X>
+struct scope
+{
+  struct member_info
+  {
+    static constexpr std::size_t size() { 
+      return __reflect_num_members(X); 
+    }
+    template<std::size_t I>
+    static constexpr auto get() { 
+      return __reflect_member(X, I); 
+    }
+  };
+
+  static constexpr reflected_tuple<member_info> members() { 
+    return {}; 
+  }
+};
+
+// Reflects the current translation unit.
+template<reflection_t X>
+struct tu : scope<X>
+{
+};
+
+// Reflects a namespace.
+template<reflection_t X>
+struct ns : named<X>, scope<X>
+{
+  static constexpr namespace_traits traits() {
+    return __reflect_traits(X);
+  }
+  static constexpr bool is_inline() {
+    return traits().is_inline;
+  }
+};
+
+// Base class of the type hierarchy.
+template<reflection_t X>
+struct type : named<X>
+{
+};
+
+// All user-defined types define a scope.
+template<reflection_t X>
+struct user_defined_type : type<X>, scope<X>
+{
+};
+
+// A useful base class for class and union types.
+template<reflection_t X>
+struct member_type : user_defined_type<X>
+{
+  using member_info = typename scope<X>::member_info;
+  using memvar_tuple = filtered_tuple<member_info, is_member_variable>;
+  using memfn_tuple = filtered_tuple<member_info, is_member_function>;
+  using ctor_tuple = filtered_tuple<member_info, is_constructor>;
+  using dtor_tuple = filtered_tuple<member_info, is_destructor>;
+
+  static constexpr class_traits traits() {
+    return class_traits(__reflect_traits(X));
+  }
+
+  static constexpr bool is_complete() {
+    return traits().is_complete;
+  }
+
+  static constexpr memvar_tuple member_variables() {
+    return {};
+  }
+  static constexpr memfn_tuple member_functions() {
+    return {};
+  }
+  static constexpr ctor_tuple constructors() {
+    return {};
+  }
+  static constexpr auto destructor() {
+    return cget<0>(dtor_tuple{});
+  }
+};
+
+template<reflection_t X>
+struct class_type : member_type<X>
+{
+  static constexpr bool is_polymorphic() {
+    return member_type<X>::traits().is_polymorphic;
+  }
+  static constexpr bool is_abstract() {
+    return member_type<X>::traits().is_abstract;
+  }
+  static constexpr bool is_final() {
+    return member_type<X>::traits().is_final;
+  }
+  static constexpr bool is_empty() {
+    return member_type<X>::traits().is_empty;
+  }
+};
+
+template<reflection_t X>
+struct union_type : member_type<X>
+{
+  // TODO: Are there any interesting traits here?
+};
+
+template<reflection_t X>
+struct enum_type : user_defined_type<X>
+{
+  static constexpr enum_traits traits() {
+    return enum_traits(__reflect_traits(X));
+  }
+
+  static constexpr bool is_scoped() {
+    return traits().is_scoped;
+  }
+
+  static constexpr bool is_complete() {
+    return traits().is_complete;
+  }
+};
+
+// A typed entity is an entity described by a type: objects, references,
+// and functions (and presumably also values?). Note that an expression
+// is not an entity.
+template<reflection_t X>
+struct typed
+{
+  static constexpr auto type() {
+    return __reflect_type(X);
+  }
+  
+  static constexpr auto type_name() {
+    return type().name();
+  }
+};
+
+
+template<reflection_t X>
+struct variable : named<X>, typed<X>
+{
+  static constexpr variable_traits traits() {
+    return variable_traits(__reflect_traits(X));
+  }
+
+  static constexpr storage_kind storage() {
+    return traits().storage;
+  }
+  static constexpr bool has_static_storage() {
+    return storage() == static_storage;
+  }
+  static constexpr bool has_automatic_storage() {
+    return storage() == automatic_storage;
+  }
+  static constexpr bool has_thread_storage() {
+    return storage() == thread_storage;
+  }
+
+  static constexpr bool is_inline() {
+    return traits().is_inline;
+  }
+  static constexpr bool is_constexpr() {
+    return decl<X>::is_constexpr;
+  }
+
+  static constexpr auto pointer() {
+    return __reflect_pointer(X);
+  }
+};
+
+
+template<reflection_t X>
+struct function : named<X>, typed<X>
+{
+  struct parm_info
+  {
+    static constexpr std::size_t size() { 
+      return __reflect_num_parameters(X); 
+    }
+
+    template<std::size_t I>
+    static constexpr auto get() { 
+      return __reflect_parameter(X, I); 
+    }
+  };
+
+  static constexpr function_traits traits() {
+    return function_traits(__reflect_traits(X));
+  }
+
+  static constexpr bool is_constexpr() {
+    return traits().is_constexpr;
+  }
+  static constexpr bool is_noexcept() {
+    return traits().is_noexcept;
+  }
+
+  static constexpr bool is_defined() {
+    return traits().is_defined;
+  }
+  static constexpr bool is_inline() {
+    static_assert(is_defined());
+    return traits().is_inline;
+  }
+  static constexpr bool is_deleted() {
+    static_assert(is_defined());
+    return traits().is_deleted;
+  }
+
+  static constexpr reflected_tuple<parm_info> parameters() { 
+    return {}; 
+  }
+
+  static constexpr auto pointer() {
+    return __reflect_pointer(X);
+  }
+};
+
+// A helper class for member functions.
+template<reflection_t X>
+struct method : named<X>, typed<X> {
+  static constexpr method_traits traits() {
+    return method_traits(__reflect_traits(X));
+  }
+
+  static constexpr bool is_noexcept() {
+    return traits().is_noexcept;
+  }
+
+  static constexpr bool is_defined() {
+    return traits().is_defined;
+  }
+  static constexpr bool is_inline() {
+    static_assert(is_defined());
+    return traits().is_inline;
+  }
+  static constexpr bool is_deleted() {
+    static_assert(is_defined());
+    return traits().is_deleted;
+  }
+};
+
+// A helper class for possibly polymorphic methods.
+template<reflection_t X>
+struct polymethod : method<X> {
+  static constexpr bool is_virtual() {
+    return method<X>::traits().is_virtual;
+  }
+  static constexpr bool is_pure_virtual() {
+    return method<X>::traits().is_abstract;
+  }
+  static constexpr bool is_final() {
+    return method<X>::traits().is_final;
+  }
+  static constexpr bool is_override() {
+    return method<X>::traits().is_override;
+  }
+};
+
+// A constructor is a special member function.
+template<reflection_t X>
+struct constructor : method<X> {
+  static constexpr bool is_constexpr() {
+    return method<X>::traits().is_constexpr;
+  }
+  static constexpr bool is_explicit() {
+    return method<X>::traits().is_explicit;
+  }
+
+  static constexpr bool is_defaulted() {
+    static_assert(method<X>::is_defined());
+    return method<X>::traits().is_deleted;
+  }
+  static constexpr bool is_trivial() {
+    static_assert(method<X>::is_defined());
+    return method<X>::traits().is_deleted;
+  }
+};
+
+// A destructor is a special member function that can be overridden.
+template<reflection_t X>
+struct destructor : polymethod<X>
+{
+  static constexpr bool is_defaulted() {
+    static_assert(polymethod<X>::is_defined());
+    return polymethod<X>::traits().is_deleted;
+  }
+  static constexpr bool is_trivial() {
+    static_assert(polymethod<X>::is_defined());
+    return polymethod<X>::traits().is_deleted;
+  }
+};
+
+// Non-special member functions.
+template<reflection_t X>
+struct member_function : polymethod<X>
+{ 
+  static constexpr bool is_constexpr() {
+    return polymethod<X>::traits().is_constexpr;
+  }
+};
+
+// Conversion operators.
+template<reflection_t X>
+struct conversion_function : member_function<X>
+{
+  static constexpr bool is_constexpr() {
+    return member_function<X>::traits().is_constexpr;
+  }
+  static constexpr bool is_explicit() {
+    return member_function<X>::traits().is_explicit;
+  }
+};
+
+// A member variable is a non-static data member.
+template<reflection_t X>
+struct member_variable : named<X>, typed<X> {
+  static constexpr field_traits traits() {
+    return field_traits(__reflect_traits(X));
+  }
+
+  static constexpr bool is_mutable() {
+    return traits().is_mutable;
+  }
+
+  static constexpr auto pointer() {
+    return __reflect_pointer(X);
+  }
+};
+
+// A function parameter is essentially a variable.
+template<reflection_t X>
+struct parameter : variable<X>
+{
+};
+
+// An enumeration value.
+//
+// NOTE: Value traits do not currently differ from decl traits.
+template<reflection_t X>
+struct enumerator : named<X>, typed<X>
+{
+  static constexpr auto value() {
+    return __reflect_value(X);
+  }
+};
+
+
+// -------------------------------------------------------------------------- //
+// Tuple traversal/application
+
+template<typename T, typename F>
+constexpr void
+for_each(T const& t, F f) {
+  detail::tuple_for_each_recursive<0>(t, f);
+}
+
+
+// -------------------------------------------------------------------------- //
+// Type traits
+
+// is member variable
+
+template<typename T>
+struct is_member_variable
+  : std::integral_constant<bool, false> { };
+
+template<reflection_t X>
+struct is_member_variable<member_variable<X>> 
+  : std::integral_constant<bool, true> { };
+
+template<typename T>
+constexpr bool is_member_variable_v = is_member_variable<T>::value;
+
+// is member function
+
+template<typename T>
+struct is_member_function
+  : std::integral_constant<bool, false> { };
+
+template<reflection_t X>
+struct is_member_function<member_function<X>> 
+  : std::integral_constant<bool, true> { };
+
+template<typename T>
+constexpr bool is_member_function_v = is_member_function<T>::value;
+
+// is constructor
+
+template<typename T>
+struct is_constructor
+  : std::integral_constant<bool, false> { };
+
+template<reflection_t X>
+struct is_constructor<constructor<X>> 
+  : std::integral_constant<bool, true> { };
+
+template<typename T>
+constexpr bool is_constructor_v = is_constructor<T>::value;
+
+// is destructor
+
+template<typename T>
+struct is_destructor
+  : std::integral_constant<bool, false> { };
+
+template<reflection_t X>
+struct is_destructor<destructor<X>> 
+  : std::integral_constant<bool, true> { };
+
+template<typename T>
+constexpr bool is_destructor_v = is_destructor<T>::value;
+
+
+} // inline namespace v1
+} // namespace meta
+} // namespace cpp3k
+
+
+#endif /* _CPP3K_META */
