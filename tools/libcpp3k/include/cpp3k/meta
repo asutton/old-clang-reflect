@@ -227,6 +227,7 @@ template<typename T> struct is_member_variable;
 template<typename T> struct is_member_function;
 template<typename T> struct is_constructor;
 template<typename T> struct is_destructor;
+template<typename T> struct is_enumerator;
 
 
 template<reflection_t X>
@@ -391,6 +392,9 @@ struct union_type : member_type<X>
 template<reflection_t X>
 struct enum_type : user_defined_type<X>
 {
+  using member_info = typename scope<X>::member_info;
+  using enumerator_tuple = filtered_tuple<member_info, is_enumerator>;
+
   static constexpr enum_traits traits() {
     return enum_traits(__reflect_traits(X));
   }
@@ -401,6 +405,10 @@ struct enum_type : user_defined_type<X>
 
   static constexpr bool is_complete() {
     return traits().is_complete;
+  }
+
+  static constexpr enumerator_tuple enumerators() {
+    return {};
   }
 };
 
@@ -698,6 +706,19 @@ struct is_destructor<destructor<X>>
 
 template<typename T>
 constexpr bool is_destructor_v = is_destructor<T>::value;
+
+// is enumerator
+
+template<typename T>
+struct is_enumerator
+  : std::integral_constant<bool, false> { };
+
+template<reflection_t X>
+struct is_enumerator<enumerator<X>>
+  : std::integral_constant<bool, true> { };
+
+template<typename T>
+constexpr bool is_enumerator_v = is_member_variable<T>::value;
 
 
 } // inline namespace v1
